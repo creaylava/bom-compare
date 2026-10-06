@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>📋 BOM 对比工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --panel-bg: #ffffff;
+    --text: #1c1c1e;
+    --muted: #8e8e93;
+    --border: #e5e5ea;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0a0a0c;
+      --panel-bg: #1c1c1e;
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --border: #2c2c2e;
+      --accent: #0a84ff;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; }
+  
+  header {
+    padding: 10px 14px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  h1 { font-size: 15px; font-weight: 700; margin-right: auto; }
+  .btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-bg);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.15s;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:active:not(:disabled) { transform: scale(0.96); }
+  input[type="file"] { display: none; }
+  
+  .upload-bar {
+    padding: 8px 14px;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .upload-slot {
+    flex: 1;
+    padding: 10px;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    transition: 0.15s;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .upload-slot:hover { border-color: var(--accent); color: var(--accent); }
+  .upload-slot.loaded { border-color: var(--green); color: var(--green); border-style: solid; }
+  .upload-slot .filename { font-weight: 700; display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; }
+  
+  .compare-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    gap: 6px;
+    padding: 0 6px 8px;
+    min-height: 0;
+  }
+  .panel {
+    flex: 1;
+    min-width: 0;
+    background: var(--panel-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .panel::-webkit-scrollbar { width: 5px; }
+  .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  
+  .panel-header {
+    position: sticky;
+    top: 0;
+    padding: 8px 10px;
+    background: var(--panel-bg);
+    border-bottom: 2px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .panel-header span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .panel-header span:last-child { color: var(--muted); flex-shrink: 0; }
+  
+  .bom-row {
+    min-height: 40px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    overflow: hidden;
+    transition: background 0.15s;
+  }
+  .bom-row .pn {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bom-row .qty {
+    font-weight: 700;
+    color: var(--text);
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  .bom-row .desc {
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .bom-row.matched { background: rgba(34, 197, 94, 0.1); }
+  .bom-row.different { background: rgba(239, 68, 68, 0.12); }
+  .bom-row.only { background: rgba(239, 68, 68, 0.2); }
+  .bom-row.only .pn::after {
+    content: " ⚠";
+    font-size: 10px;
+  }
+  
+  #svgLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 20;
+  }
+  
+  .legend {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-bg);
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    display: none;
+    gap: 14px;
+    z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,.15);
+  }
+  .legend.show { display: flex; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-line { width: 22px; height: 3px; border-radius: 2px; }
+  
+  .empty-state {
+    padding: 60px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 2;
+  }
+  
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  .stats {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 14px 0;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .stats .green { color: var(--green); font-weight: 700; }
+  .stats .red { color: var(--red); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 BOM 对比工具</h1>
+  <button class="btn primary" id="compareBtn" disabled>开始对比</button>
+  <button class="btn" id="clearBtn">清空</button>
+</header>
+
+<div class="upload-bar">
+  <label class="upload-slot" id="slotA">
+    <div>📄 BOM 版本 A</div>
+    <span class="filename" id="filenameA">点击选择 PDF</span>
+    <input type="file" id="fileA" accept=".pdf">
+  </label>
+  <label class="upload-slot" id="slotB">
+    <div>📄 BOM 版本 B</div>
+    <span class="filename" id="filenameB">点击选择 PDF</span>
+    <input type="file" id="fileB" accept=".pdf">
+  </label>
+</div>
+
+<div class="stats" id="stats" style="display:none;"></div>
+
+<div class="compare-wrap" id="compareWrap">
+  <div class="panel" id="panelA">
+    <div class="empty-state">等待导入 BOM A</div>
+  </div>
+  <div class="panel" id="panelB">
+    <div class="empty-state">等待导入 BOM B</div>
+  </div>
+  <svg id="svgLayer"></svg>
+</div>
+
+<div class="legend" id="legend">
+  <div class="legend-item"><div class="legend-line" style="background:var(--green)"></div>料号+用量一致</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--red)"></div>不一致</div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let bomA = null;
+let bomB = null;
+let lastPairs = null;
+
+const fileA = document.getElementById('fileA');
+const fileB = document.getElementById('fileB');
+const filenameA = document.getElementById('filenameA');
+const filenameB = document.getElementById('filenameB');
+const slotA = document.getElementById('slotA');
+const slotB = document.getElementById('slotB');
+const compareBtn = document.getElementById('compareBtn');
+
+/* =========================================================
+   文件上传
+   ========================================================= */
+fileA.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  slotA.classList.remove('loaded');
+  filenameA.innerHTML = '<span class="spinner"></span> 解析中...';
+  try {
+    const items = await parsePDF(file);
+    bomA = { filename: file.name, items };
+    slotA.classList.add('loaded');
+    filenameA.textContent = `${file.name} (${items.length} 项)`;
+    checkReady();
+  } catch (err) {
+    console.error(err);
+    filenameA.textContent = '❌ 解析失败：' + err.message;
+  }
+});
+
+fileB.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  slotB.classList.remove('loaded');
+  filenameB.innerHTML = '<span class="spinner"></span> 解析中...';
+  try {
+    const items = await parsePDF(file);
+    bomB = { filename: file.name, items };
+    slotB.classList.add('loaded');
+    filenameB.textContent = `${file.name} (${items.length} 项)`;
+    checkReady();
+  } catch (err) {
+    console.error(err);
+    filenameB.textContent = '❌ 解析失败：' + err.message;
+  }
+});
+
+function checkReady() {
+  compareBtn.disabled = !(bomA && bomB);
+}
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  bomA = null; bomB = null;
+  fileA.value = ''; fileB.value = '';
+  slotA.classList.remove('loaded'); slotB.classList.remove('loaded');
+  filenameA.textContent = '点击选择 PDF';
+  filenameB.textContent = '点击选择 PDF';
+  document.getElementById('panelA').innerHTML = '<div class="empty-state">等待导入 BOM A</div>';
+  document.getElementById('panelB').innerHTML = '<div class="empty-state">等待导入 BOM B</div>';
+  document.getElementById('svgLayer').innerHTML = '';
+  document.getElementById('legend').classList.remove('show');
+  document.getElementById('stats').style.display = 'none';
+  compareBtn.disabled = true;
+  lastPairs = null;
+});
+
+compareBtn.addEventListener('click', () => {
+  if (!bomA || !bomB) return;
+  compareAndRender();
+});
+
+/* =========================================================
+   PDF 解析
+   ========================================================= */
+async function parsePDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const lines = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const yMap = new Map();
+    for (const it of content.items) {
+      if (!it.str || !it.str.trim()) continue;
+      const y = Math.round(it.transform[5]);
+      let key = null;
+      for (const k of yMap.keys()) {
+        if (Math.abs(k - y) < 6) { key = k; break; }
+      }
+      if (key === null) key = y;
+      if (!yMap.has(key)) yMap.set(key, []);
+      yMap.get(key).push({ x: it.transform[4], str: it.str });
+    }
+    const ys = Array.from(yMap.keys()).sort((a, b) => b - a);
+    for (const y of ys) {
+      const row = yMap.get(y).sort((a, b) => a.x - b.x);
+      const text = row.map(r => r.str).join(' ').replace(/\s+/g, ' ').trim();
+      if (text) lines.push(text);
+    }
+  }
+  
+  const bomRows = [];
+  for (const text of lines) {
+    const parsed = parseBomLine(text);
+    if (parsed) bomRows.push(parsed);
+  }
+  return bomRows;
+}
+
+/* 
+ * 解析单行 BOM，提取：
+ *   - partNumber：物料号
+ *   - qty：用量
+ *   - description：剩余描述
+ */
+function parseBomLine(text) {
+  // 过滤表头
+  if (/^(序号|编号|物料|名称|规格|型号|数量|用量|单位|备注|no\.?|part|description|qty|unit)/i.test(text)) return null;
+  if (/^(共|合计|总计|total)/i.test(text)) return null;
+  
+  const tokens = text.split(' ').filter(t => t);
+  if (tokens.length < 2) return null;
+  
+  // 1. 找物料号：第一个含字母+数字或纯长数字的 token（跳过开头的纯序号）
+  let partNumber = null;
+  let pnIdx = -1;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    // 跳过开头的纯小序号（1-2位数字）
+    if (i === 0 && /^\d{1,2}$/.test(t)) continue;
+    if (/[A-Za-z]/.test(t) && /\d/.test(t) && t.length >= 3) {
+      partNumber = t; pnIdx = i; break;
+    }
+    if (/^\d{4,}$/.test(t)) {
+      partNumber = t; pnIdx = i; break;
+    }
+  }
+  if (partNumber === null) {
+    partNumber = tokens[0];
+    pnIdx = 0;
+  }
+  
+  // 2. 找用量：在物料号之后，找第一个纯数字 token（可能是数量）
+  let qty = null;
+  let qtyIdx = -1;
+  for (let i = pnIdx + 1; i < tokens.length; i++) {
+    const t = tokens[i];
+    // 用量：纯数字，或数字+单位（如 "2pcs"、"4pcs"、"2件"）
+    if (/^\d+(\.\d+)?$/.test(t)) {
+      qty = t; qtyIdx = i; break;
+    }
+    if (/^\d+(\.\d+)?[a-zA-Z件个只套米台片]+$/.test(t)) {
+      const m = t.match(/^(\d+(?:\.\d+)?)/);
+      if (m) { qty = m[1]; qtyIdx = i; break; }
+    }
+  }
+  
+  // 3. 剩余部分作为描述
+  const descTokens = tokens.filter((_, i) => i !== pnIdx && i !== qtyIdx);
+  const description = descTokens.join(' ');
+  
+  return {
+    partNumber,
+    qty: qty || '',   // 没用量的就当空字符串
+    description,
+    raw: text
+  };
+}
+
+/* =========================================================
+   对比：物料号相同 + 用量相同 = 一致
+   ========================================================= */
+function compareAndRender() {
+  const itemsA = bomA.items;
+  const itemsB = bomB.items;
+  
+  const usedB = new Set();
+  const pairs = [];
+  
+  // 建 B 的物料号索引
+  const bMap = new Map();
+  for (let i = 0; i < itemsB.length; i++) {
+    const k = itemsB[i].partNumber;
+    if (!bMap.has(k)) bMap.set(k, []);
+    bMap.get(k).push(i);
+  }
+  
+  for (let i = 0; i < itemsA.length; i++) {
+    const a = itemsA[i];
+    
+    // 优先在 B 里找「料号相同 + 用量相同」的
+    let matchedBIdx = -1;
+    const candidates = bMap.get(a.partNumber) || [];
+    
+    // 第一遍：料号相同 + 用量相同
+    for (const bi of candidates) {
+      if (usedB.has(bi)) continue;
+      if (normalizeQty(itemsB[bi].qty) === normalizeQty(a.qty)) {
+        matchedBIdx = bi; break;
+      }
+    }
+    // 第二遍：料号相同即可（用来标记为"用量不同"）
+    if (matchedBIdx === -1) {
+      for (const bi of candidates) {
+        if (usedB.has(bi)) continue;
+        matchedBIdx = bi; break;
+      }
+    }
+    
+    if (matchedBIdx !== -1) {
+      usedB.add(matchedBIdx);
+      const b = itemsB[matchedBIdx];
+      const samePN = a.partNumber === b.partNumber;
+      const sameQty = normalizeQty(a.qty) === normalizeQty(b.qty);
+      pairs.push({
+        a, b, aIdx: i, bIdx: matchedBIdx,
+        same: samePN && sameQty,
+        reason: !samePN ? '料号不同' : (!sameQty ? '用量不同' : '一致')
+      });
+    } else {
+      pairs.push({ a, b: null, aIdx: i, bIdx: -1, same: false, reason: 'A独有' });
+    }
+  }
+  
+  // B 侧未匹配的
+  for (let i = 0; i < itemsB.length; i++) {
+    if (!usedB.has(i)) {
+      pairs.push({ a: null, b: itemsB[i], aIdx: -1, bIdx: i, same: false, reason: 'B独有' });
+    }
+  }
+  
+  render(pairs);
+}
+
+function normalizeQty(q) {
+  if (!q && q !== 0) return '';
+  // 去掉单位、空格，只留数字
+  const m = String(q).match(/^(\d+(?:\.\d+)?)/);
+  if (!m) return String(q).trim().toLowerCase();
+  return m[1];
+}
+
+/* =========================================================
+   渲染
+   ========================================================= */
+function render(pairs) {
+  lastPairs = pairs;
+  
+  const panelA = document.getElementById('panelA');
+  const panelB = document.getElementById('panelB');
+  const svg = document.getElementById('svgLayer');
+  svg.innerHTML = '';
+  
+  // A 侧状态
+  const aStatus = new Array(bomA.items.length).fill('only');
+  for (const p of pairs) {
+    if (p.a) aStatus[p.aIdx] = p.same ? 'matched' : 'different';
+  }
+  
+  let htmlA = `<div class="panel-header"><span>A: ${esc(bomA.filename)}</span><span>${bomA.items.length} 项</span></div>`;
+  for (let i = 0; i < bomA.items.length; i++) {
+    const item = bomA.items[i];
+    htmlA += `<div class="bom-row ${aStatus[i]}" data-side="a" data-index="${i}">
+      <span class="pn">${esc(item.partNumber)}</span>
+      ${item.qty ? `<span class="qty">×${esc(item.qty)}</span>` : ''}
+      <span class="desc">${esc(item.description)}</span>
+    </div>`;
+  }
+  panelA.innerHTML = htmlA;
+  
+  // B 侧状态
+  const bStatus = new Array(bomB.items.length).fill('only');
+  for (const p of pairs) {
+    if (p.b) bStatus[p.bIdx] = p.same ? 'matched' : 'different';
+  }
+  
+  let htmlB = `<div class="panel-header"><span>B: ${esc(bomB.filename)}</span><span>${bomB.items.length} 项</span></div>`;
+  for (let i = 0; i < bomB.items.length; i++) {
+    const item = bomB.items[i];
+    htmlB += `<div class="bom-row ${bStatus[i]}" data-side="b" data-index="${i}">
+      <span class="pn">${esc(item.partNumber)}</span>
+      ${item.qty ? `<span class="qty">×${esc(item.qty)}</span>` : ''}
+      <span class="desc">${esc(item.description)}</span>
+    </div>`;
+  }
+  panelB.innerHTML = htmlB;
+  
+  // 统计
+  const sameCount = pairs.filter(p => p.same).length;
+  const diffCount = pairs.filter(p => p.a && p.b && !p.same).length;
+  const onlyACount = pairs.filter(p => p.a && !p.b).length;
+  const onlyBCount = pairs.filter(p => !p.a && p.b).length;
+  const qtyDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '用量不同').length;
+  const pnDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '料号不同').length;
+  
+  const stats = document.getElementById('stats');
+  stats.style.display = 'flex';
+  stats.innerHTML = `
+    <span>✅ 完全一致 <span class="green">${sameCount}</span></span>
+    <span>❌ 用量不同 <span class="red">${qtyDiffCount}</span></span>
+    <span>⚠ 料号不同 <span class="red">${pnDiffCount}</span></span>
+    <span>⚠ A 独有 <span class="red">${onlyACount}</span></span>
+    <span>⚠ B 独有 <span class="red">${onlyBCount}</span></span>
+  `;
+  
+  setupScrollSync();
+  requestAnimationFrame(() => drawLines(pairs));
+  
+  document.getElementById('legend').classList.add('show');
+}
+
+let scrollSyncLock = false;
+function setupScrollSync() {
+  const pa = document.getElementById('panelA');
+  const pb = document.getElementById('panelB');
+  pa.onscroll = () => {
+    if (scrollSyncLock) return;
+    scrollSyncLock = true;
+    pb.scrollTop = pa.scrollTop;
+    requestAnimationFrame(() => { scrollSyncLock = false; });
+    scheduleDraw();
+  };
+  pb.onscroll = () => {
+    if (scrollSyncLock) return;
+    scrollSyncLock = true;
+    pa.scrollTop = pb.scrollTop;
+    requestAnimationFrame(() => { scrollSyncLock = false; });
+    scheduleDraw();
+  };
+}
+
+let drawRAF = null;
+function scheduleDraw() {
+  if (drawRAF) return;
+  drawRAF = requestAnimationFrame(() => {
+    drawRAF = null;
+    if (lastPairs) drawLines(lastPairs);
+  });
+}
+
+function drawLines(pairs) {
+  const svg = document.getElementById('svgLayer');
+  const wrap = document.getElementById('compareWrap');
+  const wrapRect = wrap.getBoundingClientRect();
+  svg.setAttribute('viewBox', `0 0 ${wrapRect.width} ${wrapRect.height}`);
+  svg.style.width = wrapRect.width + 'px';
+  svg.style.height = wrapRect.height + 'px';
+  svg.innerHTML = '';
+  
+  const panelA = document.getElementById('panelA');
+  const panelB = document.getElementById('panelB');
+  
+  for (const p of pairs) {
+    if (!p.a || !p.b) continue;
+    const elA = panelA.querySelector(`[data-index="${p.aIdx}"]`);
+    const elB = panelB.querySelector(`[data-index="${p.bIdx}"]`);
+    if (!elA || !elB) continue;
+    
+    const rA = elA.getBoundingClientRect();
+    const rB = elB.getBoundingClientRect();
+    
+    if (rA.bottom < wrapRect.top || rA.top > wrapRect.bottom) continue;
+    if (rB.bottom < wrapRect.top || rB.top > wrapRect.bottom) continue;
+    
+    const x1 = rA.right - wrapRect.left;
+    const y1 = rA.top + rA.height / 2 - wrapRect.top;
+    const x2 = rB.left - wrapRect.left;
+    const y2 = rB.top + rB.height / 2 - wrapRect.top;
+    
+    const midX = (x1 + x2) / 2;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+    path.setAttribute('stroke', p.same ? '#22c55e' : '#ef4444');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('opacity', '0.8');
+    svg.appendChild(path);
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+window.addEventListener('resize', () => {
+  if (lastPairs) {
+    requestAnimationFrame(() => drawLines(lastPairs));
+  }
+});
+</script>
+</body>
+</html>

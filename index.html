@@ -44,6 +44,7 @@
     gap: 8px;
     align-items: center;
     flex-shrink: 0;
+    flex-wrap: wrap;
   }
   h1 { font-size: 15px; font-weight: 700; margin-right: auto; }
   .btn {
@@ -57,9 +58,12 @@
     cursor: pointer;
     font-weight: 600;
     transition: 0.15s;
+    white-space: nowrap;
   }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.green { background: var(--green); border-color: var(--green); color: #fff; }
+  .btn.green:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn:active:not(:disabled) { transform: scale(0.96); }
   input[type="file"] { display: none; }
 
@@ -251,6 +255,7 @@
 <header>
   <h1>📋 BOM 对比工具</h1>
   <button class="btn primary" id="compareBtn" disabled>开始对比</button>
+  <button class="btn green" id="exportBtn" disabled>📊 导出报告</button>
   <button class="btn" id="clearBtn">清空</button>
 </header>
 
@@ -299,6 +304,7 @@ const filenameB = document.getElementById('filenameB');
 const slotA = document.getElementById('slotA');
 const slotB = document.getElementById('slotB');
 const compareBtn = document.getElementById('compareBtn');
+const exportBtn = document.getElementById('exportBtn');
 
 /* =========================================================
    文件上传
@@ -359,6 +365,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('stats').style.display = 'none';
   document.getElementById('parseInfo').textContent = '';
   compareBtn.disabled = true;
+  exportBtn.disabled = true;
   lastPairs = null;
 });
 
@@ -367,8 +374,13 @@ compareBtn.addEventListener('click', () => {
   compareAndRender();
 });
 
+exportBtn.addEventListener('click', () => {
+  if (!lastPairs) return;
+  exportReport();
+});
+
 /* =========================================================
-   PDF 解析：提取每行的 number 列 和 name 列
+   PDF 解析
    ========================================================= */
 async function parsePDF(file) {
   const arrayBuffer = await file.arrayBuffer();
@@ -379,7 +391,6 @@ async function parsePDF(file) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
 
-    // 1. 按 y 坐标把文本项聚成"行"
     const yMap = new Map();
     for (const it of content.items) {
       if (!it.str || !it.str.trim()) continue;
@@ -401,8 +412,6 @@ async function parsePDF(file) {
     for (const y of ys) {
       const items = yMap.get(y).sort((a, b) => a.x - b.x);
 
-      // 2. 按 x 坐标的"间隙"把行拆成单元格
-      //    间隙 > 15px 视为新单元格
       const cells = [];
       let currentStr = '';
       let lastRight = null;
@@ -419,10 +428,6 @@ async function parsePDF(file) {
 
       if (cells.length === 0) continue;
 
-      // 3. 识别 number 和 name
-      //    - 如果第一个单元格是短数字（序号），跳过
-      //    - number = 下一个单元格
-      //    - name = 再下一个单元格
       let startIdx = 0;
       if (/^\d{1,3}$/.test(cells[0])) startIdx = 1;
 
@@ -430,9 +435,7 @@ async function parsePDF(file) {
       const name = cells[startIdx + 1] || '';
       const raw = cells.join(' | ');
 
-      // 过滤明显的表头
       if (isHeader(number, name)) continue;
-      // number 和 name 都为空的行跳过
       if (!number && !name) continue;
 
       rows.push({ number, name, raw });
@@ -446,10 +449,8 @@ function isHeader(number, name) {
   const lower = (number + ' ' + name).toLowerCase();
   const headerKeywords = ['序号', '编号', '物料', '名称', '规格', '型号', '数量', '用量',
                           'no', 'part number', 'part no', 'name', 'description', 'qty'];
-  // 完全匹配表头
   if (/^(序号|编号|物料|名称|规格|型号|数量|用量|no\.?|part|name|description|qty|unit)$/i.test(number)) return true;
   if (/^(名称|规格|型号|数量|用量|description|qty|unit)$/i.test(name)) return true;
-  // 包含多个表头关键词也算
   let count = 0;
   for (const kw of headerKeywords) {
     if (lower.includes(kw)) count++;
@@ -458,7 +459,7 @@ function isHeader(number, name) {
 }
 
 /* =========================================================
-   对比逻辑：逐行比对 number 列 和 name 列
+   对比
    ========================================================= */
 function compareAndRender() {
   const itemsA = bomA.items;
@@ -471,14 +472,12 @@ function compareAndRender() {
     const a = itemsA[i];
     let matchedBIdx = -1;
 
-    // 优先匹配：number 相同 + name 相同
     for (let j = 0; j < itemsB.length; j++) {
       if (usedB.has(j)) continue;
       if (itemsB[j].number === a.number && itemsB[j].name === a.name) {
         matchedBIdx = j; break;
       }
     }
-    // 其次：number 相同即可（标记为名称不同）
     if (matchedBIdx === -1) {
       for (let j = 0; j < itemsB.length; j++) {
         if (usedB.has(j)) continue;
@@ -503,7 +502,6 @@ function compareAndRender() {
     }
   }
 
-  // B 中未匹配的行
   for (let j = 0; j < itemsB.length; j++) {
     if (!usedB.has(j)) {
       pairs.push({ a: null, b: itemsB[j], aIdx: -1, bIdx: j, same: false, reason: 'B独有' });
@@ -511,6 +509,7 @@ function compareAndRender() {
   }
 
   render(pairs);
+  exportBtn.disabled = false;
 }
 
 /* =========================================================
@@ -524,7 +523,6 @@ function render(pairs) {
   const svg = document.getElementById('svgLayer');
   svg.innerHTML = '';
 
-  // A 侧状态
   const aStatus = new Array(bomA.items.length).fill('only');
   for (const p of pairs) {
     if (p.a) aStatus[p.aIdx] = p.same ? 'matched' : 'different';
@@ -541,7 +539,6 @@ function render(pairs) {
   }
   panelA.innerHTML = htmlA;
 
-  // B 侧状态
   const bStatus = new Array(bomB.items.length).fill('only');
   for (const p of pairs) {
     if (p.b) bStatus[p.bIdx] = p.same ? 'matched' : 'different';
@@ -558,7 +555,6 @@ function render(pairs) {
   }
   panelB.innerHTML = htmlB;
 
-  // 统计
   const sameCount = pairs.filter(p => p.same).length;
   const nameDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '名称不同').length;
   const numDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '编号不同').length;
@@ -652,6 +648,125 @@ function drawLines(pairs) {
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* =========================================================
+   导出报告（CSV）
+   ========================================================= */
+function exportReport() {
+  if (!lastPairs || !bomA || !bomB) return;
+
+  const pairs = lastPairs;
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  const sameList = pairs.filter(p => p.same);
+  const nameDiffList = pairs.filter(p => p.a && p.b && !p.same && p.reason === '名称不同');
+  const numDiffList = pairs.filter(p => p.a && p.b && !p.same && p.reason === '编号不同');
+  const onlyAList = pairs.filter(p => p.a && !p.b);
+  const onlyBList = pairs.filter(p => !p.a && p.b);
+  const diffTotal = nameDiffList.length + numDiffList.length + onlyAList.length + onlyBList.length;
+
+  const clean = s => String(s || '').replace(/"/g, '""').replace(/\n/g, ' ');
+  const q = s => `"${clean(s)}"`;
+
+  let csv = '\uFEFF';
+
+  // ============ 概要 ============
+  csv += '【BOM 对比报告】\n';
+  csv += `生成时间,${q(timeStr)}\n`;
+  csv += `版本 A,${q(bomA.filename)},共 ${bomA.items.length} 行\n`;
+  csv += `版本 B,${q(bomB.filename)},共 ${bomB.items.length} 行\n`;
+  csv += '\n';
+
+  csv += '【概要统计】\n';
+  csv += '类别,数量\n';
+  csv += `✅ 完全一致（编号+名称都相同）,${sameList.length}\n`;
+  csv += `❌ 名称不同（编号相同，名称不同）,${nameDiffList.length}\n`;
+  csv += `⚠ 编号不同（编号本身不同）,${numDiffList.length}\n`;
+  csv += `⚠ A 独有（B 中不存在）,${onlyAList.length}\n`;
+  csv += `⚠ B 独有（A 中不存在）,${onlyBList.length}\n`;
+  csv += `差异合计,${diffTotal}\n`;
+  csv += '\n\n';
+
+  // ============ 不同点明细 ============
+  csv += '【不同点明细】\n';
+  csv += '序号,差异类型,A-编号,A-名称,B-编号,B-名称\n';
+  let idx = 1;
+
+  // 名称不同
+  for (const p of nameDiffList) {
+    csv += [
+      idx++,
+      '名称不同',
+      q(p.a.number),
+      q(p.a.name),
+      q(p.b.number),
+      q(p.b.name)
+    ].join(',') + '\n';
+  }
+  // 编号不同
+  for (const p of numDiffList) {
+    csv += [
+      idx++,
+      '编号不同',
+      q(p.a.number),
+      q(p.a.name),
+      q(p.b.number),
+      q(p.b.name)
+    ].join(',') + '\n';
+  }
+  // A 独有
+  for (const p of onlyAList) {
+    csv += [
+      idx++,
+      'A独有',
+      q(p.a.number),
+      q(p.a.name),
+      '(无)',
+      '(无)'
+    ].join(',') + '\n';
+  }
+  // B 独有
+  for (const p of onlyBList) {
+    csv += [
+      idx++,
+      'B独有',
+      '(无)',
+      '(无)',
+      q(p.b.number),
+      q(p.b.name)
+    ].join(',') + '\n';
+  }
+
+  if (diffTotal === 0) {
+    csv += '（无差异）\n';
+  }
+  csv += '\n\n';
+
+  // ============ 相同点明细 ============
+  csv += '【相同点明细】\n';
+  csv += '序号,编号,名称\n';
+  let idx2 = 1;
+  for (const p of sameList) {
+    csv += [
+      idx2++,
+      q(p.a.number),
+      q(p.a.name)
+    ].join(',') + '\n';
+  }
+  if (sameList.length === 0) {
+    csv += '（无完全一致的条目）\n';
+  }
+
+  // ============ 下载 ============
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  link.href = URL.createObjectURL(blob);
+  link.download = `BOM对比报告_${ts}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 window.addEventListener('resize', () => {

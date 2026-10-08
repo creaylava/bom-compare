@@ -15,6 +15,7 @@
     --accent: #3b82f6;
     --green: #22c55e;
     --red: #ef4444;
+    --row-alt: #fafafa;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -24,6 +25,7 @@
       --muted: #8e8e93;
       --border: #2c2c2e;
       --accent: #0a84ff;
+      --row-alt: #18181a;
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -91,131 +93,112 @@
   .upload-slot.loaded { border-color: var(--green); color: var(--green); border-style: solid; }
   .upload-slot .filename { font-weight: 700; display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; }
 
-  .compare-wrap {
-    flex: 1;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    gap: 6px;
-    padding: 0 6px 8px;
-    min-height: 0;
+  .parse-info {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 14px 4px;
+    line-height: 1.5;
   }
-  .panel {
+
+  .stats {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 4px 14px 6px;
+    display: none;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .stats.show { display: flex; }
+  .stats .green { color: var(--green); font-weight: 700; }
+  .stats .red { color: var(--red); font-weight: 700; }
+
+  /* 对比表 */
+  .table-wrap {
     flex: 1;
-    min-width: 0;
+    overflow: auto;
+    margin: 0 8px 8px;
     background: var(--panel-bg);
     border-radius: 10px;
     border: 1px solid var(--border);
-    overflow-y: auto;
-    overflow-x: hidden;
-    position: relative;
   }
-  .panel::-webkit-scrollbar { width: 5px; }
-  .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .table-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+  .table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  .panel-header {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout: fixed;
+  }
+
+  thead th {
     position: sticky;
     top: 0;
-    padding: 8px 10px;
     background: var(--panel-bg);
-    border-bottom: 2px solid var(--border);
+    padding: 10px 8px;
+    text-align: left;
     font-size: 11px;
     font-weight: 700;
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    gap: 6px;
-  }
-  .panel-header span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .panel-header span:last-child { color: var(--muted); flex-shrink: 0; }
-
-  .col-header {
-    display: flex;
-    padding: 6px 10px;
-    background: var(--panel-bg);
-    border-bottom: 1px solid var(--border);
-    font-size: 10px;
-    font-weight: 700;
     color: var(--muted);
-    position: sticky;
-    top: 37px;
-    z-index: 4;
+    border-bottom: 2px solid var(--border);
+    z-index: 5;
+    white-space: nowrap;
   }
-  .col-header .col-num { flex: 0 0 42%; }
-  .col-header .col-name { flex: 1; }
+  /* 列宽 */
+  thead th.th-a-num, .cell-a-num { width: 18%; }
+  thead th.th-a-name, .cell-a-name { width: 27%; }
+  thead th.th-b-num, .cell-b-num { width: 18%; }
+  thead th.th-b-name, .cell-b-name { width: 27%; }
+  thead th.th-status, .cell-status { width: 10%; text-align: center; }
 
-  .bom-row {
-    min-height: 40px;
-    padding: 6px 10px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  tbody tr {
     border-bottom: 1px solid var(--border);
-    font-size: 12px;
     transition: background 0.15s;
   }
-  .bom-row .num {
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: rgba(59,130,246,0.06); }
+
+  /* 状态行背景色 */
+  tbody tr.row-same { background: rgba(34, 197, 94, 0.06); }
+  tbody tr.row-same:nth-child(even) { background: rgba(34, 197, 94, 0.1); }
+  tbody tr.row-diff { background: rgba(239, 68, 68, 0.06); }
+  tbody tr.row-diff:nth-child(even) { background: rgba(239, 68, 68, 0.1); }
+  tbody tr.row-only { background: rgba(239, 68, 68, 0.14); }
+
+  tbody td {
+    padding: 9px 8px;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cell-a-num, .cell-b-num {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-weight: 700;
     color: var(--accent);
-    flex: 0 0 42%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding-right: 6px;
-    border-right: 1px dashed var(--border);
   }
-  .bom-row .name {
+  .cell-a-name, .cell-b-name {
     color: var(--text);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding-left: 4px;
   }
-  .bom-row.matched { background: rgba(34, 197, 94, 0.1); }
-  .bom-row.different { background: rgba(239, 68, 68, 0.12); }
-  .bom-row.only { background: rgba(239, 68, 68, 0.2); }
-  .bom-row.only .num::after {
-    content: " ⚠";
-    font-size: 10px;
-    color: var(--red);
+  .cell-empty {
+    color: var(--muted);
+    font-style: italic;
+    opacity: 0.6;
   }
 
-  #svgLayer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 20;
-  }
-
-  .legend {
-    position: fixed;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--panel-bg);
-    padding: 6px 14px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
+  .status-text {
+    font-weight: 700;
     font-size: 12px;
-    display: none;
-    gap: 14px;
-    z-index: 100;
-    box-shadow: 0 4px 15px rgba(0,0,0,.15);
+    text-align: center;
   }
-  .legend.show { display: flex; }
-  .legend-item { display: flex; align-items: center; gap: 6px; }
-  .legend-line { width: 22px; height: 3px; border-radius: 2px; }
+  .status-text.same { color: var(--green); }
+  .status-text.diff { color: var(--red); }
 
   .empty-state {
-    padding: 60px 16px;
+    padding: 80px 20px;
     text-align: center;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 2;
   }
 
@@ -231,22 +214,14 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .stats {
-    font-size: 11px;
-    color: var(--muted);
-    padding: 4px 14px 0;
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-  .stats .green { color: var(--green); font-weight: 700; }
-  .stats .red { color: var(--red); font-weight: 700; }
-
-  .parse-info {
-    font-size: 11px;
-    color: var(--muted);
-    padding: 0 14px 4px;
-    line-height: 1.5;
+  /* 移动端适配 */
+  @media (max-width: 640px) {
+    table { font-size: 11px; }
+    thead th { padding: 8px 4px; font-size: 10px; }
+    tbody td { padding: 7px 4px; }
+    .status-text { font-size: 11px; }
+    h1 { font-size: 14px; }
+    .btn { padding: 6px 10px; font-size: 12px; }
   }
 </style>
 </head>
@@ -273,21 +248,10 @@
 </div>
 
 <div class="parse-info" id="parseInfo"></div>
-<div class="stats" id="stats" style="display:none;"></div>
+<div class="stats" id="stats"></div>
 
-<div class="compare-wrap" id="compareWrap">
-  <div class="panel" id="panelA">
-    <div class="empty-state">等待导入 BOM A</div>
-  </div>
-  <div class="panel" id="panelB">
-    <div class="empty-state">等待导入 BOM B</div>
-  </div>
-  <svg id="svgLayer"></svg>
-</div>
-
-<div class="legend" id="legend">
-  <div class="legend-item"><div class="legend-line" style="background:var(--green)"></div>编号+名称一致</div>
-  <div class="legend-item"><div class="legend-line" style="background:var(--red)"></div>不一致</div>
+<div class="table-wrap" id="tableWrap">
+  <div class="empty-state">导入两个 PDF 后，点「开始对比」<br>即可逐行查看比对结果</div>
 </div>
 
 <script>
@@ -318,7 +282,7 @@ fileA.addEventListener('change', async (e) => {
     const items = await parsePDF(file);
     bomA = { filename: file.name, items };
     slotA.classList.add('loaded');
-    filenameA.textContent = `${file.name} (${items.length} 项)`;
+    filenameA.textContent = `${file.name} (${items.length} 行)`;
     checkReady();
   } catch (err) {
     console.error(err);
@@ -335,7 +299,7 @@ fileB.addEventListener('change', async (e) => {
     const items = await parsePDF(file);
     bomB = { filename: file.name, items };
     slotB.classList.add('loaded');
-    filenameB.textContent = `${file.name} (${items.length} 项)`;
+    filenameB.textContent = `${file.name} (${items.length} 行)`;
     checkReady();
   } catch (err) {
     console.error(err);
@@ -358,11 +322,9 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   slotA.classList.remove('loaded'); slotB.classList.remove('loaded');
   filenameA.textContent = '点击选择 PDF';
   filenameB.textContent = '点击选择 PDF';
-  document.getElementById('panelA').innerHTML = '<div class="empty-state">等待导入 BOM A</div>';
-  document.getElementById('panelB').innerHTML = '<div class="empty-state">等待导入 BOM B</div>';
-  document.getElementById('svgLayer').innerHTML = '';
-  document.getElementById('legend').classList.remove('show');
-  document.getElementById('stats').style.display = 'none';
+  document.getElementById('tableWrap').innerHTML =
+    '<div class="empty-state">导入两个 PDF 后，点「开始对比」<br>即可逐行查看比对结果</div>';
+  document.getElementById('stats').classList.remove('show');
   document.getElementById('parseInfo').textContent = '';
   compareBtn.disabled = true;
   exportBtn.disabled = true;
@@ -433,12 +395,11 @@ async function parsePDF(file) {
 
       const number = cells[startIdx] || '';
       const name = cells[startIdx + 1] || '';
-      const raw = cells.join(' | ');
 
       if (isHeader(number, name)) continue;
       if (!number && !name) continue;
 
-      rows.push({ number, name, raw });
+      rows.push({ number, name });
     }
   }
 
@@ -459,7 +420,7 @@ function isHeader(number, name) {
 }
 
 /* =========================================================
-   对比
+   对比（逐行对齐）
    ========================================================= */
 function compareAndRender() {
   const itemsA = bomA.items;
@@ -472,12 +433,14 @@ function compareAndRender() {
     const a = itemsA[i];
     let matchedBIdx = -1;
 
+    // 优先：编号 + 名称 都相同
     for (let j = 0; j < itemsB.length; j++) {
       if (usedB.has(j)) continue;
       if (itemsB[j].number === a.number && itemsB[j].name === a.name) {
         matchedBIdx = j; break;
       }
     }
+    // 其次：编号相同即可
     if (matchedBIdx === -1) {
       for (let j = 0; j < itemsB.length; j++) {
         if (usedB.has(j)) continue;
@@ -493,157 +456,89 @@ function compareAndRender() {
       const sameNumber = a.number === b.number;
       const sameName = a.name === b.name;
       pairs.push({
-        a, b, aIdx: i, bIdx: matchedBIdx,
+        a, b,
         same: sameNumber && sameName,
         reason: !sameNumber ? '编号不同' : (!sameName ? '名称不同' : '一致')
       });
     } else {
-      pairs.push({ a, b: null, aIdx: i, bIdx: -1, same: false, reason: 'A独有' });
+      pairs.push({ a, b: null, same: false, reason: 'A独有' });
     }
   }
 
+  // B 中未匹配的行
   for (let j = 0; j < itemsB.length; j++) {
     if (!usedB.has(j)) {
-      pairs.push({ a: null, b: itemsB[j], aIdx: -1, bIdx: j, same: false, reason: 'B独有' });
+      pairs.push({ a: null, b: itemsB[j], same: false, reason: 'B独有' });
     }
   }
 
-  render(pairs);
+  renderTable(pairs);
   exportBtn.disabled = false;
 }
 
 /* =========================================================
-   渲染
+   渲染表格
    ========================================================= */
-function render(pairs) {
+function renderTable(pairs) {
   lastPairs = pairs;
 
-  const panelA = document.getElementById('panelA');
-  const panelB = document.getElementById('panelB');
-  const svg = document.getElementById('svgLayer');
-  svg.innerHTML = '';
+  const wrap = document.getElementById('tableWrap');
 
-  const aStatus = new Array(bomA.items.length).fill('only');
-  for (const p of pairs) {
-    if (p.a) aStatus[p.aIdx] = p.same ? 'matched' : 'different';
-  }
-
-  let htmlA = `<div class="panel-header"><span>A: ${esc(bomA.filename)}</span><span>${bomA.items.length} 行</span></div>
-    <div class="col-header"><span class="col-num">编号 (Number)</span><span class="col-name">名称 (Name)</span></div>`;
-  for (let i = 0; i < bomA.items.length; i++) {
-    const item = bomA.items[i];
-    htmlA += `<div class="bom-row ${aStatus[i]}" data-side="a" data-index="${i}">
-      <span class="num">${esc(item.number || '(空)')}</span>
-      <span class="name">${esc(item.name || '')}</span>
-    </div>`;
-  }
-  panelA.innerHTML = htmlA;
-
-  const bStatus = new Array(bomB.items.length).fill('only');
-  for (const p of pairs) {
-    if (p.b) bStatus[p.bIdx] = p.same ? 'matched' : 'different';
-  }
-
-  let htmlB = `<div class="panel-header"><span>B: ${esc(bomB.filename)}</span><span>${bomB.items.length} 行</span></div>
-    <div class="col-header"><span class="col-num">编号 (Number)</span><span class="col-name">名称 (Name)</span></div>`;
-  for (let i = 0; i < bomB.items.length; i++) {
-    const item = bomB.items[i];
-    htmlB += `<div class="bom-row ${bStatus[i]}" data-side="b" data-index="${i}">
-      <span class="num">${esc(item.number || '(空)')}</span>
-      <span class="name">${esc(item.name || '')}</span>
-    </div>`;
-  }
-  panelB.innerHTML = htmlB;
-
+  // 统计
   const sameCount = pairs.filter(p => p.same).length;
-  const nameDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '名称不同').length;
-  const numDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '编号不同').length;
-  const onlyACount = pairs.filter(p => p.a && !p.b).length;
-  const onlyBCount = pairs.filter(p => !p.a && p.b).length;
+  const diffCount = pairs.length - sameCount;
 
   const stats = document.getElementById('stats');
-  stats.style.display = 'flex';
+  stats.classList.add('show');
   stats.innerHTML = `
-    <span>✅ 完全一致 <span class="green">${sameCount}</span></span>
-    <span>❌ 名称不同 <span class="red">${nameDiffCount}</span></span>
-    <span>⚠ 编号不同 <span class="red">${numDiffCount}</span></span>
-    <span>⚠ A 独有 <span class="red">${onlyACount}</span></span>
-    <span>⚠ B 独有 <span class="red">${onlyBCount}</span></span>
+    <span>共 <span style="color:var(--text);font-weight:700">${pairs.length}</span> 行</span>
+    <span>✅ Same <span class="green">${sameCount}</span></span>
+    <span>❌ Different <span class="red">${diffCount}</span></span>
   `;
 
-  setupScrollSync();
-  requestAnimationFrame(() => drawLines(pairs));
-  document.getElementById('legend').classList.add('show');
-}
+  if (pairs.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">没有可对比的数据</div>';
+    return;
+  }
 
-let scrollSyncLock = false;
-function setupScrollSync() {
-  const pa = document.getElementById('panelA');
-  const pb = document.getElementById('panelB');
-  pa.onscroll = () => {
-    if (scrollSyncLock) return;
-    scrollSyncLock = true;
-    pb.scrollTop = pa.scrollTop;
-    requestAnimationFrame(() => { scrollSyncLock = false; });
-    scheduleDraw();
-  };
-  pb.onscroll = () => {
-    if (scrollSyncLock) return;
-    scrollSyncLock = true;
-    pa.scrollTop = pb.scrollTop;
-    requestAnimationFrame(() => { scrollSyncLock = false; });
-    scheduleDraw();
-  };
-}
-
-let drawRAF = null;
-function scheduleDraw() {
-  if (drawRAF) return;
-  drawRAF = requestAnimationFrame(() => {
-    drawRAF = null;
-    if (lastPairs) drawLines(lastPairs);
-  });
-}
-
-function drawLines(pairs) {
-  const svg = document.getElementById('svgLayer');
-  const wrap = document.getElementById('compareWrap');
-  const wrapRect = wrap.getBoundingClientRect();
-  svg.setAttribute('viewBox', `0 0 ${wrapRect.width} ${wrapRect.height}`);
-  svg.style.width = wrapRect.width + 'px';
-  svg.style.height = wrapRect.height + 'px';
-  svg.innerHTML = '';
-
-  const panelA = document.getElementById('panelA');
-  const panelB = document.getElementById('panelB');
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th class="th-a-num">A-编号</th>
+          <th class="th-a-name">A-名称</th>
+          <th class="th-b-num">B-编号</th>
+          <th class="th-b-name">B-名称</th>
+          <th class="th-status">状态</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
 
   for (const p of pairs) {
-    if (!p.a || !p.b) continue;
-    const elA = panelA.querySelector(`[data-index="${p.aIdx}"]`);
-    const elB = panelB.querySelector(`[data-index="${p.bIdx}"]`);
-    if (!elA || !elB) continue;
+    const rowClass = p.same ? 'row-same' : (p.a && p.b ? 'row-diff' : 'row-only');
+    const aNum = p.a ? esc(p.a.number) : '';
+    const aName = p.a ? esc(p.a.name) : '';
+    const bNum = p.b ? esc(p.b.number) : '';
+    const bName = p.b ? esc(p.b.name) : '';
 
-    const rA = elA.getBoundingClientRect();
-    const rB = elB.getBoundingClientRect();
+    html += `<tr class="${rowClass}">`;
+    html += `<td class="cell-a-num">${aNum ? aNum : '<span class="cell-empty">(无)</span>'}</td>`;
+    html += `<td class="cell-a-name">${aName ? aName : '<span class="cell-empty">(无)</span>'}</td>`;
+    html += `<td class="cell-b-num">${bNum ? bNum : '<span class="cell-empty">(无)</span>'}</td>`;
+    html += `<td class="cell-b-name">${bName ? bName : '<span class="cell-empty">(无)</span>'}</td>`;
 
-    if (rA.bottom < wrapRect.top || rA.top > wrapRect.bottom) continue;
-    if (rB.bottom < wrapRect.top || rB.top > wrapRect.bottom) continue;
-
-    const x1 = rA.right - wrapRect.left;
-    const y1 = rA.top + rA.height / 2 - wrapRect.top;
-    const x2 = rB.left - wrapRect.left;
-    const y2 = rB.top + rB.height / 2 - wrapRect.top;
-
-    const midX = (x1 + x2) / 2;
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
-    path.setAttribute('stroke', p.same ? '#22c55e' : '#ef4444');
-    path.setAttribute('stroke-width', '2');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('opacity', '0.8');
-    svg.appendChild(path);
+    if (p.same) {
+      html += `<td class="cell-status"><span class="status-text same">Same</span></td>`;
+    } else {
+      html += `<td class="cell-status"><span class="status-text diff">Different</span></td>`;
+    }
+    html += `</tr>`;
   }
+
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+  wrap.scrollTop = 0;
 }
 
 function esc(s) {
@@ -651,7 +546,7 @@ function esc(s) {
 }
 
 /* =========================================================
-   导出报告（CSV）
+   导出报告
    ========================================================= */
 function exportReport() {
   if (!lastPairs || !bomA || !bomB) return;
@@ -661,11 +556,7 @@ function exportReport() {
   const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
   const sameList = pairs.filter(p => p.same);
-  const nameDiffList = pairs.filter(p => p.a && p.b && !p.same && p.reason === '名称不同');
-  const numDiffList = pairs.filter(p => p.a && p.b && !p.same && p.reason === '编号不同');
-  const onlyAList = pairs.filter(p => p.a && !p.b);
-  const onlyBList = pairs.filter(p => !p.a && p.b);
-  const diffTotal = nameDiffList.length + numDiffList.length + onlyAList.length + onlyBList.length;
+  const diffList = pairs.filter(p => !p.same);
 
   const clean = s => String(s || '').replace(/"/g, '""').replace(/\n/g, ' ');
   const q = s => `"${clean(s)}"`;
@@ -681,82 +572,25 @@ function exportReport() {
 
   csv += '【概要统计】\n';
   csv += '类别,数量\n';
-  csv += `✅ 完全一致（编号+名称都相同）,${sameList.length}\n`;
-  csv += `❌ 名称不同（编号相同，名称不同）,${nameDiffList.length}\n`;
-  csv += `⚠ 编号不同（编号本身不同）,${numDiffList.length}\n`;
-  csv += `⚠ A 独有（B 中不存在）,${onlyAList.length}\n`;
-  csv += `⚠ B 独有（A 中不存在）,${onlyBList.length}\n`;
-  csv += `差异合计,${diffTotal}\n`;
+  csv += `Same（编号+名称都相同）,${sameList.length}\n`;
+  csv += `Different（有差异）,${diffList.length}\n`;
+  csv += `对比总行数,${pairs.length}\n`;
   csv += '\n\n';
 
-  // ============ 不同点明细 ============
-  csv += '【不同点明细】\n';
-  csv += '序号,差异类型,A-编号,A-名称,B-编号,B-名称\n';
+  // ============ 逐行明细 ============
+  csv += '【逐行对比明细】\n';
+  csv += '序号,状态,差异类型,A-编号,A-名称,B-编号,B-名称\n';
   let idx = 1;
-
-  // 名称不同
-  for (const p of nameDiffList) {
+  for (const p of pairs) {
     csv += [
       idx++,
-      '名称不同',
-      q(p.a.number),
-      q(p.a.name),
-      q(p.b.number),
-      q(p.b.name)
+      p.same ? 'Same' : 'Different',
+      q(p.reason || ''),
+      q(p.a ? p.a.number : ''),
+      q(p.a ? p.a.name : ''),
+      q(p.b ? p.b.number : ''),
+      q(p.b ? p.b.name : '')
     ].join(',') + '\n';
-  }
-  // 编号不同
-  for (const p of numDiffList) {
-    csv += [
-      idx++,
-      '编号不同',
-      q(p.a.number),
-      q(p.a.name),
-      q(p.b.number),
-      q(p.b.name)
-    ].join(',') + '\n';
-  }
-  // A 独有
-  for (const p of onlyAList) {
-    csv += [
-      idx++,
-      'A独有',
-      q(p.a.number),
-      q(p.a.name),
-      '(无)',
-      '(无)'
-    ].join(',') + '\n';
-  }
-  // B 独有
-  for (const p of onlyBList) {
-    csv += [
-      idx++,
-      'B独有',
-      '(无)',
-      '(无)',
-      q(p.b.number),
-      q(p.b.name)
-    ].join(',') + '\n';
-  }
-
-  if (diffTotal === 0) {
-    csv += '（无差异）\n';
-  }
-  csv += '\n\n';
-
-  // ============ 相同点明细 ============
-  csv += '【相同点明细】\n';
-  csv += '序号,编号,名称\n';
-  let idx2 = 1;
-  for (const p of sameList) {
-    csv += [
-      idx2++,
-      q(p.a.number),
-      q(p.a.name)
-    ].join(',') + '\n';
-  }
-  if (sameList.length === 0) {
-    csv += '（无完全一致的条目）\n';
   }
 
   // ============ 下载 ============
@@ -768,12 +602,6 @@ function exportReport() {
   link.click();
   URL.revokeObjectURL(link.href);
 }
-
-window.addEventListener('resize', () => {
-  if (lastPairs) {
-    requestAnimationFrame(() => drawLines(lastPairs));
-  }
-});
 </script>
 </body>
 </html>

@@ -35,7 +35,7 @@
     overflow: hidden;
   }
   body { display: flex; flex-direction: column; }
-  
+
   header {
     padding: 10px 14px;
     background: var(--panel-bg);
@@ -62,7 +62,7 @@
   .btn.primary:disabled { opacity: 0.4; cursor: not-allowed; }
   .btn:active:not(:disabled) { transform: scale(0.96); }
   input[type="file"] { display: none; }
-  
+
   .upload-bar {
     padding: 8px 14px;
     display: flex;
@@ -86,7 +86,7 @@
   .upload-slot:hover { border-color: var(--accent); color: var(--accent); }
   .upload-slot.loaded { border-color: var(--green); color: var(--green); border-style: solid; }
   .upload-slot .filename { font-weight: 700; display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; }
-  
+
   .compare-wrap {
     flex: 1;
     position: relative;
@@ -108,7 +108,7 @@
   }
   .panel::-webkit-scrollbar { width: 5px; }
   .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  
+
   .panel-header {
     position: sticky;
     top: 0;
@@ -124,53 +124,60 @@
   }
   .panel-header span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .panel-header span:last-child { color: var(--muted); flex-shrink: 0; }
-  
+
+  .col-header {
+    display: flex;
+    padding: 6px 10px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--muted);
+    position: sticky;
+    top: 37px;
+    z-index: 4;
+  }
+  .col-header .col-num { flex: 0 0 42%; }
+  .col-header .col-name { flex: 1; }
+
   .bom-row {
     min-height: 40px;
-    padding: 6px 8px;
+    padding: 6px 10px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     border-bottom: 1px solid var(--border);
     font-size: 12px;
-    overflow: hidden;
     transition: background 0.15s;
   }
-  .bom-row .pn {
+  .bom-row .num {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-weight: 700;
     color: var(--accent);
-    flex-shrink: 0;
-    max-width: 50%;
+    flex: 0 0 42%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    padding-right: 6px;
+    border-right: 1px dashed var(--border);
   }
-  .bom-row .qty {
-    font-weight: 700;
+  .bom-row .name {
     color: var(--text);
-    flex-shrink: 0;
-    background: rgba(0,0,0,0.06);
-    padding: 1px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-  }
-  .bom-row .desc {
-    color: var(--muted);
+    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
-    min-width: 0;
+    padding-left: 4px;
   }
   .bom-row.matched { background: rgba(34, 197, 94, 0.1); }
   .bom-row.different { background: rgba(239, 68, 68, 0.12); }
   .bom-row.only { background: rgba(239, 68, 68, 0.2); }
-  .bom-row.only .pn::after {
+  .bom-row.only .num::after {
     content: " ⚠";
     font-size: 10px;
+    color: var(--red);
   }
-  
+
   #svgLayer {
     position: absolute;
     top: 0;
@@ -180,7 +187,7 @@
     pointer-events: none;
     z-index: 20;
   }
-  
+
   .legend {
     position: fixed;
     bottom: 12px;
@@ -199,7 +206,7 @@
   .legend.show { display: flex; }
   .legend-item { display: flex; align-items: center; gap: 6px; }
   .legend-line { width: 22px; height: 3px; border-radius: 2px; }
-  
+
   .empty-state {
     padding: 60px 16px;
     text-align: center;
@@ -207,7 +214,7 @@
     font-size: 12px;
     line-height: 2;
   }
-  
+
   .spinner {
     display: inline-block;
     width: 12px;
@@ -219,7 +226,7 @@
     vertical-align: middle;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  
+
   .stats {
     font-size: 11px;
     color: var(--muted);
@@ -230,6 +237,13 @@
   }
   .stats .green { color: var(--green); font-weight: 700; }
   .stats .red { color: var(--red); font-weight: 700; }
+
+  .parse-info {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 14px 4px;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
@@ -253,6 +267,7 @@
   </label>
 </div>
 
+<div class="parse-info" id="parseInfo"></div>
 <div class="stats" id="stats" style="display:none;"></div>
 
 <div class="compare-wrap" id="compareWrap">
@@ -266,7 +281,7 @@
 </div>
 
 <div class="legend" id="legend">
-  <div class="legend-item"><div class="legend-line" style="background:var(--green)"></div>料号+用量一致</div>
+  <div class="legend-item"><div class="legend-line" style="background:var(--green)"></div>编号+名称一致</div>
   <div class="legend-item"><div class="legend-line" style="background:var(--red)"></div>不一致</div>
 </div>
 
@@ -324,6 +339,11 @@ fileB.addEventListener('change', async (e) => {
 
 function checkReady() {
   compareBtn.disabled = !(bomA && bomB);
+  const info = document.getElementById('parseInfo');
+  const parts = [];
+  if (bomA) parts.push(`A: ${bomA.items.length} 行`);
+  if (bomB) parts.push(`B: ${bomB.items.length} 行`);
+  info.textContent = parts.length ? '解析结果 — ' + parts.join(' | ') : '';
 }
 
 document.getElementById('clearBtn').addEventListener('click', () => {
@@ -337,6 +357,7 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   document.getElementById('svgLayer').innerHTML = '';
   document.getElementById('legend').classList.remove('show');
   document.getElementById('stats').style.display = 'none';
+  document.getElementById('parseInfo').textContent = '';
   compareBtn.disabled = true;
   lastPairs = null;
 });
@@ -347,174 +368,149 @@ compareBtn.addEventListener('click', () => {
 });
 
 /* =========================================================
-   PDF 解析
+   PDF 解析：提取每行的 number 列 和 name 列
    ========================================================= */
 async function parsePDF(file) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  const lines = [];
+  const rows = [];
+
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const content = await page.getTextContent();
+
+    // 1. 按 y 坐标把文本项聚成"行"
     const yMap = new Map();
     for (const it of content.items) {
       if (!it.str || !it.str.trim()) continue;
       const y = Math.round(it.transform[5]);
       let key = null;
       for (const k of yMap.keys()) {
-        if (Math.abs(k - y) < 6) { key = k; break; }
+        if (Math.abs(k - y) < 5) { key = k; break; }
       }
       if (key === null) key = y;
       if (!yMap.has(key)) yMap.set(key, []);
-      yMap.get(key).push({ x: it.transform[4], str: it.str });
+      yMap.get(key).push({
+        x: it.transform[4],
+        right: it.transform[4] + (it.width || 0),
+        str: it.str
+      });
     }
+
     const ys = Array.from(yMap.keys()).sort((a, b) => b - a);
     for (const y of ys) {
-      const row = yMap.get(y).sort((a, b) => a.x - b.x);
-      const text = row.map(r => r.str).join(' ').replace(/\s+/g, ' ').trim();
-      if (text) lines.push(text);
+      const items = yMap.get(y).sort((a, b) => a.x - b.x);
+
+      // 2. 按 x 坐标的"间隙"把行拆成单元格
+      //    间隙 > 15px 视为新单元格
+      const cells = [];
+      let currentStr = '';
+      let lastRight = null;
+      for (const item of items) {
+        if (lastRight !== null && item.x - lastRight > 15) {
+          if (currentStr.trim()) cells.push(currentStr.trim());
+          currentStr = item.str;
+        } else {
+          currentStr += (currentStr ? ' ' : '') + item.str;
+        }
+        lastRight = item.right;
+      }
+      if (currentStr.trim()) cells.push(currentStr.trim());
+
+      if (cells.length === 0) continue;
+
+      // 3. 识别 number 和 name
+      //    - 如果第一个单元格是短数字（序号），跳过
+      //    - number = 下一个单元格
+      //    - name = 再下一个单元格
+      let startIdx = 0;
+      if (/^\d{1,3}$/.test(cells[0])) startIdx = 1;
+
+      const number = cells[startIdx] || '';
+      const name = cells[startIdx + 1] || '';
+      const raw = cells.join(' | ');
+
+      // 过滤明显的表头
+      if (isHeader(number, name)) continue;
+      // number 和 name 都为空的行跳过
+      if (!number && !name) continue;
+
+      rows.push({ number, name, raw });
     }
   }
-  
-  const bomRows = [];
-  for (const text of lines) {
-    const parsed = parseBomLine(text);
-    if (parsed) bomRows.push(parsed);
-  }
-  return bomRows;
+
+  return rows;
 }
 
-/* 
- * 解析单行 BOM，提取：
- *   - partNumber：物料号
- *   - qty：用量
- *   - description：剩余描述
- */
-function parseBomLine(text) {
-  // 过滤表头
-  if (/^(序号|编号|物料|名称|规格|型号|数量|用量|单位|备注|no\.?|part|description|qty|unit)/i.test(text)) return null;
-  if (/^(共|合计|总计|total)/i.test(text)) return null;
-  
-  const tokens = text.split(' ').filter(t => t);
-  if (tokens.length < 2) return null;
-  
-  // 1. 找物料号：第一个含字母+数字或纯长数字的 token（跳过开头的纯序号）
-  let partNumber = null;
-  let pnIdx = -1;
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i];
-    // 跳过开头的纯小序号（1-2位数字）
-    if (i === 0 && /^\d{1,2}$/.test(t)) continue;
-    if (/[A-Za-z]/.test(t) && /\d/.test(t) && t.length >= 3) {
-      partNumber = t; pnIdx = i; break;
-    }
-    if (/^\d{4,}$/.test(t)) {
-      partNumber = t; pnIdx = i; break;
-    }
+function isHeader(number, name) {
+  const lower = (number + ' ' + name).toLowerCase();
+  const headerKeywords = ['序号', '编号', '物料', '名称', '规格', '型号', '数量', '用量',
+                          'no', 'part number', 'part no', 'name', 'description', 'qty'];
+  // 完全匹配表头
+  if (/^(序号|编号|物料|名称|规格|型号|数量|用量|no\.?|part|name|description|qty|unit)$/i.test(number)) return true;
+  if (/^(名称|规格|型号|数量|用量|description|qty|unit)$/i.test(name)) return true;
+  // 包含多个表头关键词也算
+  let count = 0;
+  for (const kw of headerKeywords) {
+    if (lower.includes(kw)) count++;
   }
-  if (partNumber === null) {
-    partNumber = tokens[0];
-    pnIdx = 0;
-  }
-  
-  // 2. 找用量：在物料号之后，找第一个纯数字 token（可能是数量）
-  let qty = null;
-  let qtyIdx = -1;
-  for (let i = pnIdx + 1; i < tokens.length; i++) {
-    const t = tokens[i];
-    // 用量：纯数字，或数字+单位（如 "2pcs"、"4pcs"、"2件"）
-    if (/^\d+(\.\d+)?$/.test(t)) {
-      qty = t; qtyIdx = i; break;
-    }
-    if (/^\d+(\.\d+)?[a-zA-Z件个只套米台片]+$/.test(t)) {
-      const m = t.match(/^(\d+(?:\.\d+)?)/);
-      if (m) { qty = m[1]; qtyIdx = i; break; }
-    }
-  }
-  
-  // 3. 剩余部分作为描述
-  const descTokens = tokens.filter((_, i) => i !== pnIdx && i !== qtyIdx);
-  const description = descTokens.join(' ');
-  
-  return {
-    partNumber,
-    qty: qty || '',   // 没用量的就当空字符串
-    description,
-    raw: text
-  };
+  return count >= 2;
 }
 
 /* =========================================================
-   对比：物料号相同 + 用量相同 = 一致
+   对比逻辑：逐行比对 number 列 和 name 列
    ========================================================= */
 function compareAndRender() {
   const itemsA = bomA.items;
   const itemsB = bomB.items;
-  
+
   const usedB = new Set();
   const pairs = [];
-  
-  // 建 B 的物料号索引
-  const bMap = new Map();
-  for (let i = 0; i < itemsB.length; i++) {
-    const k = itemsB[i].partNumber;
-    if (!bMap.has(k)) bMap.set(k, []);
-    bMap.get(k).push(i);
-  }
-  
+
   for (let i = 0; i < itemsA.length; i++) {
     const a = itemsA[i];
-    
-    // 优先在 B 里找「料号相同 + 用量相同」的
     let matchedBIdx = -1;
-    const candidates = bMap.get(a.partNumber) || [];
-    
-    // 第一遍：料号相同 + 用量相同
-    for (const bi of candidates) {
-      if (usedB.has(bi)) continue;
-      if (normalizeQty(itemsB[bi].qty) === normalizeQty(a.qty)) {
-        matchedBIdx = bi; break;
+
+    // 优先匹配：number 相同 + name 相同
+    for (let j = 0; j < itemsB.length; j++) {
+      if (usedB.has(j)) continue;
+      if (itemsB[j].number === a.number && itemsB[j].name === a.name) {
+        matchedBIdx = j; break;
       }
     }
-    // 第二遍：料号相同即可（用来标记为"用量不同"）
+    // 其次：number 相同即可（标记为名称不同）
     if (matchedBIdx === -1) {
-      for (const bi of candidates) {
-        if (usedB.has(bi)) continue;
-        matchedBIdx = bi; break;
+      for (let j = 0; j < itemsB.length; j++) {
+        if (usedB.has(j)) continue;
+        if (itemsB[j].number === a.number) {
+          matchedBIdx = j; break;
+        }
       }
     }
-    
+
     if (matchedBIdx !== -1) {
       usedB.add(matchedBIdx);
       const b = itemsB[matchedBIdx];
-      const samePN = a.partNumber === b.partNumber;
-      const sameQty = normalizeQty(a.qty) === normalizeQty(b.qty);
+      const sameNumber = a.number === b.number;
+      const sameName = a.name === b.name;
       pairs.push({
         a, b, aIdx: i, bIdx: matchedBIdx,
-        same: samePN && sameQty,
-        reason: !samePN ? '料号不同' : (!sameQty ? '用量不同' : '一致')
+        same: sameNumber && sameName,
+        reason: !sameNumber ? '编号不同' : (!sameName ? '名称不同' : '一致')
       });
     } else {
       pairs.push({ a, b: null, aIdx: i, bIdx: -1, same: false, reason: 'A独有' });
     }
   }
-  
-  // B 侧未匹配的
-  for (let i = 0; i < itemsB.length; i++) {
-    if (!usedB.has(i)) {
-      pairs.push({ a: null, b: itemsB[i], aIdx: -1, bIdx: i, same: false, reason: 'B独有' });
+
+  // B 中未匹配的行
+  for (let j = 0; j < itemsB.length; j++) {
+    if (!usedB.has(j)) {
+      pairs.push({ a: null, b: itemsB[j], aIdx: -1, bIdx: j, same: false, reason: 'B独有' });
     }
   }
-  
-  render(pairs);
-}
 
-function normalizeQty(q) {
-  if (!q && q !== 0) return '';
-  // 去掉单位、空格，只留数字
-  const m = String(q).match(/^(\d+(?:\.\d+)?)/);
-  if (!m) return String(q).trim().toLowerCase();
-  return m[1];
+  render(pairs);
 }
 
 /* =========================================================
@@ -522,67 +518,65 @@ function normalizeQty(q) {
    ========================================================= */
 function render(pairs) {
   lastPairs = pairs;
-  
+
   const panelA = document.getElementById('panelA');
   const panelB = document.getElementById('panelB');
   const svg = document.getElementById('svgLayer');
   svg.innerHTML = '';
-  
+
   // A 侧状态
   const aStatus = new Array(bomA.items.length).fill('only');
   for (const p of pairs) {
     if (p.a) aStatus[p.aIdx] = p.same ? 'matched' : 'different';
   }
-  
-  let htmlA = `<div class="panel-header"><span>A: ${esc(bomA.filename)}</span><span>${bomA.items.length} 项</span></div>`;
+
+  let htmlA = `<div class="panel-header"><span>A: ${esc(bomA.filename)}</span><span>${bomA.items.length} 行</span></div>
+    <div class="col-header"><span class="col-num">编号 (Number)</span><span class="col-name">名称 (Name)</span></div>`;
   for (let i = 0; i < bomA.items.length; i++) {
     const item = bomA.items[i];
     htmlA += `<div class="bom-row ${aStatus[i]}" data-side="a" data-index="${i}">
-      <span class="pn">${esc(item.partNumber)}</span>
-      ${item.qty ? `<span class="qty">×${esc(item.qty)}</span>` : ''}
-      <span class="desc">${esc(item.description)}</span>
+      <span class="num">${esc(item.number || '(空)')}</span>
+      <span class="name">${esc(item.name || '')}</span>
     </div>`;
   }
   panelA.innerHTML = htmlA;
-  
+
   // B 侧状态
   const bStatus = new Array(bomB.items.length).fill('only');
   for (const p of pairs) {
     if (p.b) bStatus[p.bIdx] = p.same ? 'matched' : 'different';
   }
-  
-  let htmlB = `<div class="panel-header"><span>B: ${esc(bomB.filename)}</span><span>${bomB.items.length} 项</span></div>`;
+
+  let htmlB = `<div class="panel-header"><span>B: ${esc(bomB.filename)}</span><span>${bomB.items.length} 行</span></div>
+    <div class="col-header"><span class="col-num">编号 (Number)</span><span class="col-name">名称 (Name)</span></div>`;
   for (let i = 0; i < bomB.items.length; i++) {
     const item = bomB.items[i];
     htmlB += `<div class="bom-row ${bStatus[i]}" data-side="b" data-index="${i}">
-      <span class="pn">${esc(item.partNumber)}</span>
-      ${item.qty ? `<span class="qty">×${esc(item.qty)}</span>` : ''}
-      <span class="desc">${esc(item.description)}</span>
+      <span class="num">${esc(item.number || '(空)')}</span>
+      <span class="name">${esc(item.name || '')}</span>
     </div>`;
   }
   panelB.innerHTML = htmlB;
-  
+
   // 统计
   const sameCount = pairs.filter(p => p.same).length;
-  const diffCount = pairs.filter(p => p.a && p.b && !p.same).length;
+  const nameDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '名称不同').length;
+  const numDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '编号不同').length;
   const onlyACount = pairs.filter(p => p.a && !p.b).length;
   const onlyBCount = pairs.filter(p => !p.a && p.b).length;
-  const qtyDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '用量不同').length;
-  const pnDiffCount = pairs.filter(p => p.a && p.b && !p.same && p.reason === '料号不同').length;
-  
+
   const stats = document.getElementById('stats');
   stats.style.display = 'flex';
   stats.innerHTML = `
     <span>✅ 完全一致 <span class="green">${sameCount}</span></span>
-    <span>❌ 用量不同 <span class="red">${qtyDiffCount}</span></span>
-    <span>⚠ 料号不同 <span class="red">${pnDiffCount}</span></span>
+    <span>❌ 名称不同 <span class="red">${nameDiffCount}</span></span>
+    <span>⚠ 编号不同 <span class="red">${numDiffCount}</span></span>
     <span>⚠ A 独有 <span class="red">${onlyACount}</span></span>
     <span>⚠ B 独有 <span class="red">${onlyBCount}</span></span>
   `;
-  
+
   setupScrollSync();
   requestAnimationFrame(() => drawLines(pairs));
-  
   document.getElementById('legend').classList.add('show');
 }
 
@@ -623,27 +617,27 @@ function drawLines(pairs) {
   svg.style.width = wrapRect.width + 'px';
   svg.style.height = wrapRect.height + 'px';
   svg.innerHTML = '';
-  
+
   const panelA = document.getElementById('panelA');
   const panelB = document.getElementById('panelB');
-  
+
   for (const p of pairs) {
     if (!p.a || !p.b) continue;
     const elA = panelA.querySelector(`[data-index="${p.aIdx}"]`);
     const elB = panelB.querySelector(`[data-index="${p.bIdx}"]`);
     if (!elA || !elB) continue;
-    
+
     const rA = elA.getBoundingClientRect();
     const rB = elB.getBoundingClientRect();
-    
+
     if (rA.bottom < wrapRect.top || rA.top > wrapRect.bottom) continue;
     if (rB.bottom < wrapRect.top || rB.top > wrapRect.bottom) continue;
-    
+
     const x1 = rA.right - wrapRect.left;
     const y1 = rA.top + rA.height / 2 - wrapRect.top;
     const x2 = rB.left - wrapRect.left;
     const y2 = rB.top + rB.height / 2 - wrapRect.top;
-    
+
     const midX = (x1 + x2) / 2;
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
